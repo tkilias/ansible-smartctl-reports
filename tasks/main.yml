@@ -1,0 +1,32 @@
+---
+    - name: "Install pyyaml"
+      pip:
+        name: "pyyaml"
+
+    - name: "Install pySMART"
+      pip:
+        name: "pySMART"
+
+    - name: "Create tempfile for smartctl_reports.py"
+      shell: "mktemp -t"
+      register: tempfile
+
+    - name: "Copy smartctl_reports.py"
+      copy:
+        src: smartctl_reports.py
+        dest: "{{ tempfile.stdout }}"
+
+    - name: "Get Results of SMART Selftest"
+      shell: "python '{{ tempfile.stdout }}' /dev/{{ item }}"
+      register: smartctl_report_stdout
+      with_items: "{{ ansible_devices }}"
+
+    - name: "Remove tempfile for smartctl_report.py"
+      file:
+        path: "{{ tempfile.stdout }}"
+        state: absent
+
+    - name: "Set fact smartctl_reports from stdout of smart_report python script"
+      set_fact:
+        smartctl_reports: "{{ smartctl_reports | default([]) + [ item.stdout | from_yaml ] }}"
+      with_items: "{{ smartctl_report_stdout.results }}"
