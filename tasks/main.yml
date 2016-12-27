@@ -1,5 +1,11 @@
 ---
   - name: "Execute smart test"
+    shell: "smartctl -X /dev/{{ item }}"
+    with_items: "{{ ansible_devices }}"
+    when: smartctl_test_type is defined and (smartctl_test_type == 'long' or smartctl_test_type == 'short')
+    ignore_errors: true
+
+  - name: "Execute smart test"
     shell: "smartctl -t {{ smartctl_test_type }} /dev/{{ item }}"
     with_items: "{{ ansible_devices }}"
     when: smartctl_test_type is defined and (smartctl_test_type == 'long' or smartctl_test_type == 'short')
@@ -7,7 +13,7 @@
   - name: "Wait for smart test end" 
     shell: "smartctl -a /dev/{{ item }} | grep 'progress' -i -A 1"
     register: result
-    until: result.stdout.find("progress") != -1
+    until: result.stdout.find("progress") == -1
     retries: 1000
     delay: 60
     when: smartctl_test_type is defined and (smartctl_test_type == 'long' or smartctl_test_type == 'short')
