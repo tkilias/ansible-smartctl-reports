@@ -1,32 +1,45 @@
 ---
-    - name: "Install pyyaml"
-      pip:
-        name: "pyyaml"
+  - name: "Execute smart test"
+    shell: "smartctl -t {{ smartctl_test_type }} /dev/{{ item }}"
+    with_items: "{{ ansible_devices }}"
+    when: smartctl_test_type is defined and (smartctl_test_type == 'long' or smartctl_test_type == 'short')
 
-    - name: "Install pySMART"
-      pip:
-        name: "pySMART"
+  - name: "Wait for smart test end" 
+    shell: smartctl -a /dev/{{ item }}"
+    register: result
+    until: result.stdout.find("Self-test routine in progress") != -1
+    retries: 1000
+    delay: 60
+    when: smartctl_test_type is defined and (smartctl_test_type == 'long' or smartctl_test_type == 'short')
 
-    - name: "Create tempfile for smartctl_reports.py"
-      shell: "mktemp -t"
-      register: tempfile
+  - name: "Install pyyaml"
+    pip:
+      name: "pyyaml"
 
-    - name: "Copy smartctl_reports.py"
-      copy:
-        src: smartctl_reports.py
-        dest: "{{ tempfile.stdout }}"
+  - name: "Install pySMART"
+    pip:
+      name: "pySMART"
 
-    - name: "Get Results of SMART Selftest"
-      shell: "python '{{ tempfile.stdout }}' /dev/{{ item }}"
-      register: smartctl_report_stdout
-      with_items: "{{ ansible_devices }}"
+  - name: "Create tempfile for smartctl_reports.py"
+    shell: "mktemp -t"
+    register: tempfile
 
-    - name: "Remove tempfile for smartctl_report.py"
-      file:
-        path: "{{ tempfile.stdout }}"
-        state: absent
+  - name: "Copy smartctl_reports.py"
+    copy:
+      src: smartctl_reports.py
+      dest: "{{ tempfile.stdout }}"
 
-    - name: "Set fact smartctl_reports from stdout of smart_report python script"
-      set_fact:
-        smartctl_reports: "{{ smartctl_reports | default([]) + [ item.stdout | from_yaml ] }}"
-      with_items: "{{ smartctl_report_stdout.results }}"
+  - name: "Get Results of SMART Selftest"
+    shell: "python '{{ tempfile.stdout }}' /dev/{{ item }}"
+    register: smartctl_report_stdout
+    with_items: "{{ ansible_devices }}"
+
+  - name: "Remove tempfile for smartctl_report.py"
+    file:
+      path: "{{ tempfile.stdout }}"
+      state: absent
+
+  - name: "Set fact smartctl_reports from stdout of smart_report python script"
+    set_fact:
+      smartctl_reports: "{{ smartctl_reports | default([]) + [ item.stdout | from_yaml ] }}"
+    with_items: "{{ smartctl_report_stdout.results }}"
