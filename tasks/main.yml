@@ -1,13 +1,25 @@
 ---
+  - name: check if disks support SMART
+    shell: "smartctl -s on {{ item }} ; smartctl -i {{ item }} | grep -qc 'SMART support is: Enabled'"
+    with_items: "{{ ansible_devices }}"
+    register: smart_enabled_stdout
+    ignore_errors: true
+
+  - name: set fact for smart_enabled devices
+    set_fact: 
+      smart_enabled_devices: "{{ smart_enabled_devices | default([]) + [ item.item | from_yaml ] }}"
+    with_item: smart_enabled_stdout
+    when: item.rc == 0
+
   - name: "Execute smart test"
     shell: "smartctl -X /dev/{{ item }}"
-    with_items: "{{ ansible_devices }}"
+    with_items: "{{ smart_enabled_devices }}"
     when: smartctl_test_type is defined and (smartctl_test_type == 'long' or smartctl_test_type == 'short')
     ignore_errors: true
 
   - name: "Execute smart test"
     shell: "smartctl -t {{ smartctl_test_type }} /dev/{{ item }}"
-    with_items: "{{ ansible_devices }}"
+    with_items: "{{ smart_enabled_devices }}"
     when: smartctl_test_type is defined and (smartctl_test_type == 'long' or smartctl_test_type == 'short')
 
   - name: "Wait for smart test end" 
@@ -18,7 +30,7 @@
     retries: 1000
     delay: 60
     when: smartctl_test_type is defined and (smartctl_test_type == 'long' or smartctl_test_type == 'short')
-    with_items: "{{ ansible_devices }}"
+    with_items: "{{ smart_enabled_devices }}"
 
   - name: "Install pyyaml"
     pip:
@@ -40,7 +52,7 @@
   - name: "Get Results of SMART Selftest"
     shell: "python '{{ tempfile.stdout }}' /dev/{{ item }}"
     register: smartctl_report_stdout
-    with_items: "{{ ansible_devices }}"
+    with_items: "{{ smart_enabled_devices }}"
 
   - name: "Remove tempfile for smartctl_report.py"
     file:
