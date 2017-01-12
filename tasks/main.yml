@@ -4,11 +4,15 @@
     with_items: "{{ ansible_devices }}"
     register: smart_enabled_stdout
     ignore_errors: true
+  
+  - name: init fact for smart_enabled devices
+    set_fact:
+      smart_enabled_devices: "{{ [] }}"
 
-  - name: set fact for smart_enabled devices
+  - name: add devices to fact smart_enabled devices
     set_fact: 
-      smart_enabled_devices: "{{ smart_enabled_devices | default([]) + [ item.item | from_yaml ] }}"
-    with_item: smart_enabled_stdout
+      smart_enabled_devices: "{{ smart_enabled_devices + [ item.item | from_yaml ] }}"
+    with_items: "{{ smart_enabled_stdout.results }}"
     when: item.rc == 0
 
   - name: "Execute smart test"
