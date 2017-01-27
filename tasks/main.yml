@@ -1,8 +1,8 @@
 ---
   - name: check if disks support SMART
-    shell: "smartctl -s on {{ item }} ; smartctl -i {{ item }} | grep -qc 'SMART support is: Enabled'"
+    shell: "smartctl -s on /dev/{{ item }} ; smartctl -i /dev/{{ item }} | grep -qc 'SMART support is: Enabled'"
     with_items: "{{ ansible_devices }}"
-    register: smart_enabled_stdout
+    register: "smart_enabled_stdout"
     ignore_errors: true
   
   - name: init fact for smart_enabled devices
